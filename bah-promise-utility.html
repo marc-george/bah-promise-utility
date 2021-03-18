@@ -1,0 +1,90 @@
+<link rel="import" href="../polymer/polymer.html">
+
+<!--
+`bah-promise-utility`
+Brilliant Apps Hub utility to handle reusable promises when sending HTTP requests
+
+@demo demo/index.html 
+-->
+
+<dom-module id="bah-promise-utility">
+  <script src="../q/q.js"></script>
+
+  <script>
+    Polymer({
+
+      is: 'bah-promise-utility',
+
+      properties: {
+        token: {
+          type: String
+        }
+      },
+
+      /**
+       * Send an HTTP request using vanilla JavaScript.
+       * Use the options parameter to set the method,
+       * url, body, & headers
+       * @param {Object} options - the configuration for the HTTP request
+       * @return {Promise}
+       * */
+      sendRequest: function(options) {
+        // Generate deferred promise
+        var deferred = Q.defer();
+        var _this = this;
+
+        // Create HTTP object
+        var xmlhttp;
+        if (window.XMLHttpRequest) {
+          xmlhttp = new XMLHttpRequest();
+        } else {
+          // code for older browsers
+          xmlhttp = new ActiveXObject("Microsoft.XMLHTTP");
+        }
+
+        // Handle state change and response
+        xmlhttp.onreadystatechange = function() {
+          if (this.readyState == 4 && this.status.toString().startsWith('2')) {
+            deferred.resolve(_this._getJSONObjectUnlessItIsNotAValidJsonObjectThenReturnAString(this.responseText));
+          } else if (this.readyState == 4) {
+            if (this.status === 401) {
+              _this.fire('bah-user-unauthorized');
+            }
+            deferred.reject({
+              message: _this._getJSONObjectUnlessItIsNotAValidJsonObjectThenReturnAString(this.responseText),
+              status: this.status
+            });
+          }
+        };
+
+        // Open request with selected method
+        xmlhttp.open(options.method ? options.method : 'GET', options.url, true);
+
+        // If token specified
+        if (_this.token) {
+          xmlhttp.setRequestHeader('Authorization', _this.token);
+        }
+
+        // Set content type
+        xmlhttp.setRequestHeader('Content-Type', 'application/json');
+
+        // Send body if body exists
+        xmlhttp.send(options.body ? JSON.stringify(options.body) : null);
+
+        return deferred.promise;
+      },
+
+      /**
+       * @author Andrew Severson
+       * */
+      _getJSONObjectUnlessItIsNotAValidJsonObjectThenReturnAString: function (response) {
+        try {
+          return JSON.parse(response);
+        } catch (e) {
+          return response;
+        }
+      }
+
+    });
+  </script>
+</dom-module>
